@@ -1,0 +1,11 @@
+fastapi
+uvicorn
+openai
+sentence-transformers
+python-dotenv
+faiss-cpu
+numpy
+pydantic
+streamlit
+duckduckgo-search
+google-generativeai
