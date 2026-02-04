@@ -4,13 +4,13 @@
 
 An intelligent **AI guardrail system** that audits Large Language Model (LLM) responses and detects hallucinations using:
 
-✅ Claim extraction
-✅ Web evidence retrieval
-✅ Local knowledge base search
-✅ Logical consistency checks
-✅ Confidence analysis
-✅ Cross-model verification
-✅ Risk scoring dashboard
+* Claim extraction
+* Web evidence retrieval
+* Local knowledge base search
+* Logical consistency checks
+* Confidence analysis
+* Cross-model verification
+* Risk scoring dashboard
 
 ---
 
@@ -227,11 +227,3 @@ Risk = f(fact + logic + citation + confidence + cross)
 * RAG integration
 * PDF/Doc fact verification
 * Enterprise guardrail API
-
----
-
-# 🎯 Resume Description (optional)
-
-> Built an AI hallucination detection system that audits LLM outputs using multi-stage claim verification, web evidence retrieval, logical consistency checks, and risk scoring. Designed a FastAPI backend with a Streamlit dashboard for real-time safety analysis using Gemini models and vector similarity search.
-
----
