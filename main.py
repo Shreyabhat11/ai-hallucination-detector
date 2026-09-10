@@ -17,3 +17,7 @@ def ask(q: Query):
         "answer": answer,
         **report
     }
+
+@app.get("/health")
+def health():
+    return {"status": "ok"}
