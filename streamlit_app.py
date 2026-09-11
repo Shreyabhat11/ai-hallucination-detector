@@ -1,7 +1,7 @@
 import streamlit as st
 import requests
 
-API_URL = "https://ai-hallucination-detector-i5hsuecdb86cmcsoyr4x6c.streamlit.app/"
+API_URL = "https://ai-hallucination-detector-1.onrender.com/ask"
 
 st.set_page_config(page_title="Hallucination Detector", layout="wide")
 
