@@ -1,14 +1,16 @@
-import google.generativeai as genai
+from google import genai
+
 from app.config import GEMINI_API_KEY, PRIMARY_MODEL
 
-genai.configure(api_key=GEMINI_API_KEY)
-
-model = genai.GenerativeModel(PRIMARY_MODEL)
+client = genai.Client(api_key=GEMINI_API_KEY)
 
 
 def generate_answer(prompt: str) -> str:
     try:
-        response = model.generate_content(prompt)
+        response = client.models.generate_content(
+            model=PRIMARY_MODEL,
+            contents=prompt
+        )
         return response.text
     except Exception as e:
         return f"LLM Error: {str(e)}"
