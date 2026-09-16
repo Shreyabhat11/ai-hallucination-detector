@@ -1,9 +1,20 @@
-from app.llm.generator import generate_answer
+import asyncio
 
-def cross_model_score(prompt):
-    a1 = generate_answer(prompt)
-    a2 = generate_answer(prompt)
+from app.llm.generator import generate_answer_async
 
-    if a1 == a2:
-        return 1.0
-    return 0.6
+# NOTE ON NAMING: despite the module name (kept for now to avoid an
+# API-breaking rename mid-refactor), this is a SAME-MODEL SELF-CONSISTENCY
+# check -- it asks the same model the same prompt twice and compares the
+# outputs. It is not genuine cross-model verification and should not be
+# presented as such. A real redesign (independent claim-level verification,
+# which fact_check.py now does, and/or an actual second provider) is planned
+# for the verification-quality phase. Flagging this honestly here rather
+# than silently leaving the old misleading name unexplained.
+
+
+async def cross_model_score_async(prompt: str) -> float:
+    a1, a2 = await asyncio.gather(
+        generate_answer_async(prompt),
+        generate_answer_async(prompt),
+    )
+    return 1.0 if a1 == a2 else 0.6
