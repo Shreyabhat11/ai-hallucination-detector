@@ -30,10 +30,6 @@ def _parse_verdict(raw: str) -> str:
 
 async def _verify_one_claim(claim: str, semaphore: asyncio.Semaphore, use_web_search: bool) -> dict:
     async with semaphore:
-        # KB search and web search are independent of each other, run them
-        # concurrently. Each is individually exception-isolated so one
-        # failing source degrades to "no evidence from that source" rather
-        # than failing the claim.
         async def kb_lookup():
             try:
                 return await asyncio.to_thread(store.query, claim, 3)
@@ -43,18 +39,21 @@ async def _verify_one_claim(claim: str, semaphore: asyncio.Semaphore, use_web_se
 
         async def web_lookup():
             if not use_web_search:
-                return ""
+                return []
             try:
                 return await search_web_async(claim)
             except Exception as e:
                 logger.warning("Web search failed for claim %r: %s", claim, e)
-                return ""
+                return []
 
-        kb_docs, web_evidence = await asyncio.gather(kb_lookup(), web_lookup())
+        kb_docs, web_results = await asyncio.gather(kb_lookup(), web_lookup())
 
         evidence_parts = list(kb_docs)
-        if web_evidence:
-            evidence_parts.append(web_evidence)
+        sources = []
+        for r in web_results:
+            evidence_parts.append(r["body"])
+            sources.append({"title": r.get("title", ""), "url": r.get("url", "")})
+
         evidence_text = "\n".join(p for p in evidence_parts if p).strip()
 
         if not evidence_text:
@@ -87,7 +86,7 @@ async def _verify_one_claim(claim: str, semaphore: asyncio.Semaphore, use_web_se
             "verdict": verdict,
             "score": _VERDICT_SCORE[verdict],
             "evidence": evidence_text[:800],
-            "sources": [],  # populated once citation/source metadata is wired in
+            "sources": sources,
         }
 
 
@@ -96,12 +95,6 @@ async def fact_check_claims(
     max_concurrent: int = 5,
     use_web_search: bool = True,
 ) -> tuple[list[dict], float]:
-    """Verifies all claims concurrently (bounded by max_concurrent) and
-    returns (per-claim results, aggregate fact score). A single claim
-    raising is not supposed to happen (verify_one_claim catches internally)
-    but asyncio.gather still runs with return_exceptions=True as a final
-    safety net so one unexpected bug can't 500 the whole request.
-    """
     if not claims:
         return [], 1.0
 

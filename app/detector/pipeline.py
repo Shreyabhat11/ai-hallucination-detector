@@ -1,7 +1,7 @@
 import asyncio
 import time
 
-from app.detector.citation_check import citation_score
+from app.detector.citation_check import citation_score_async
 from app.detector.claims import extract_claims
 from app.detector.confidence import confidence_score
 from app.detector.cross_model import cross_model_score_async
@@ -10,9 +10,8 @@ from app.detector.logic_check import logic_score_async
 from app.detector.scoring import compute_final_score
 from app.utils.timing import Timer
 
-# Mode configuration. This is what "Quick / Standard / Deep" actually does,
-# and it's intentionally explicit here rather than scattered across modules
-# so the behavior is easy to audit and document.
+# Mode configuration -- this is what "Quick / Standard / Deep" actually
+# does, kept explicit and centralized here so the behavior is easy to audit.
 MODE_CONFIG = {
     "quick": {
         "max_concurrent_claims": 8,
@@ -27,7 +26,7 @@ MODE_CONFIG = {
         "run_cross_model": True,
     },
     "deep": {
-        "max_concurrent_claims": 3,  # lower concurrency, be gentler on rate limits
+        "max_concurrent_claims": 3,  # lower concurrency, gentler on rate limits
         "use_web_search": True,
         "run_logic_check": True,
         "run_cross_model": True,
@@ -43,22 +42,15 @@ async def run_detection(prompt: str, answer: str, mode: str = "standard") -> dic
     with timer.measure("claim_extraction_ms"):
         claims = await asyncio.to_thread(extract_claims, answer)
 
-    # Cheap, deterministic, no I/O -- no need to parallelize these with the
-    # LLM/network-bound work below.
-    with timer.measure("citation_ms"):
-        citation = citation_score(answer)
     with timer.measure("confidence_ms"):
         confidence = confidence_score(answer)
 
     async def run_fact_check():
         with timer.measure("evidence_and_verification_ms"):
-            # NOTE: evidence gathering and verification happen together,
-            # per claim, inside fact_check_claims (parallelized across
-            # claims). They're not split into separate evidence_ms /
-            # verification_ms buckets because that would mean serializing
-            # what is currently a single concurrent unit of work per claim
-            # -- measuring them separately isn't worth giving up the
-            # parallelism for.
+            # Evidence gathering and verification happen together per claim
+            # (parallelized across claims) -- see fact_check.py. Not split
+            # into separate evidence_ms/verification_ms buckets since that
+            # would mean serializing what's currently concurrent work.
             return await fact_check_claims(
                 claims,
                 max_concurrent=cfg["max_concurrent_claims"],
@@ -77,11 +69,13 @@ async def run_detection(prompt: str, answer: str, mode: str = "standard") -> dic
         with timer.measure("cross_model_ms"):
             return await cross_model_score_async(prompt)
 
-    # These three run concurrently -- fact-checking, logic-checking, and
-    # cross-model self-consistency are all independent of each other given
-    # the answer text.
-    (claim_reports, fact), logic, cross = await asyncio.gather(
-        run_fact_check(), run_logic(), run_cross_model()
+    async def run_citations():
+        with timer.measure("citation_ms"):
+            return await citation_score_async(answer)
+
+    # Independent of each other given the answer text -- run concurrently.
+    (claim_reports, fact), logic, cross, (citation, citation_reports) = await asyncio.gather(
+        run_fact_check(), run_logic(), run_cross_model(), run_citations()
     )
 
     scores = {
@@ -101,6 +95,7 @@ async def run_detection(prompt: str, answer: str, mode: str = "standard") -> dic
         "risk_score": risk,
         "module_scores": scores,
         "claims": claim_reports,
+        "citations": citation_reports,
         "mode": mode,
         "latency": {
             "total_ms": round(total_ms, 1),

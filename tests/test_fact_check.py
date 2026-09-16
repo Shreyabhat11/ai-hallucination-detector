@@ -20,7 +20,7 @@ async def test_no_evidence_gives_insufficient_evidence_verdict(
     mock_verify, mock_search, mock_store
 ):
     mock_store.query.return_value = []
-    mock_search.return_value = ""
+    mock_search.return_value = []
 
     results, score = await fact_check_claims(["Some unverifiable claim"], use_web_search=True)
 
@@ -37,7 +37,7 @@ async def test_no_evidence_gives_insufficient_evidence_verdict(
 @patch("app.detector.fact_check.verify_prompt_async", new_callable=AsyncMock)
 async def test_supported_verdict_scores_full_marks(mock_verify, mock_search, mock_store):
     mock_store.query.return_value = ["The Eiffel Tower was completed in 1889."]
-    mock_search.return_value = ""
+    mock_search.return_value = []
     mock_verify.return_value = "SUPPORTED"
 
     results, score = await fact_check_claims(["The Eiffel Tower was completed in 1889."])
@@ -53,7 +53,7 @@ async def test_supported_verdict_scores_full_marks(mock_verify, mock_search, moc
 @patch("app.detector.fact_check.verify_prompt_async", new_callable=AsyncMock)
 async def test_contradicted_verdict_scores_zero(mock_verify, mock_search, mock_store):
     mock_store.query.return_value = ["The Eiffel Tower is 500 meters tall."]
-    mock_search.return_value = ""
+    mock_search.return_value = []
     mock_verify.return_value = "CONTRADICTED"
 
     results, score = await fact_check_claims(["The Eiffel Tower is 50 meters tall."])
@@ -71,7 +71,7 @@ async def test_one_failing_claim_does_not_crash_the_others(mock_verify, mock_sea
         RuntimeError("KB is on fire"),  # claim 1: KB lookup blows up
         ["Python was created by Guido van Rossum."],  # claim 2: fine
     ]
-    mock_search.return_value = ""
+    mock_search.return_value = []
     mock_verify.return_value = "SUPPORTED"
 
     results, score = await fact_check_claims(
@@ -97,3 +97,22 @@ async def test_web_search_skipped_when_disabled(mock_search, mock_store):
         await fact_check_claims(["a claim"], use_web_search=False)
 
     mock_search.assert_not_called()
+
+
+@pytest.mark.asyncio
+@patch("app.detector.fact_check.store")
+@patch("app.detector.fact_check.search_web_async", new_callable=AsyncMock)
+@patch("app.detector.fact_check.verify_prompt_async", new_callable=AsyncMock)
+async def test_web_sources_are_populated_with_title_and_url(mock_verify, mock_search, mock_store):
+    mock_store.query.return_value = []
+    mock_search.return_value = [
+        {"title": "Eiffel Tower - Wikipedia", "url": "https://en.wikipedia.org/wiki/Eiffel_Tower", "body": "Completed in 1889."}
+    ]
+    mock_verify.return_value = "SUPPORTED"
+
+    results, _ = await fact_check_claims(["The Eiffel Tower was completed in 1889."])
+
+    assert results[0]["sources"] == [
+        {"title": "Eiffel Tower - Wikipedia", "url": "https://en.wikipedia.org/wiki/Eiffel_Tower"}
+    ]
+    assert "Completed in 1889." in results[0]["evidence"]
