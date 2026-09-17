@@ -1,0 +1,13 @@
+fastapi
+uvicorn
+python-dotenv
+numpy
+pydantic
+streamlit
+ddgs
+google-genai
+
+# testing
+pytest
+pytest-asyncio
+httpx
