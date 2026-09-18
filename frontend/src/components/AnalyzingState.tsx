@@ -9,7 +9,7 @@ import { useEffect, useState } from "react"
 const labels = [
   "Contacting the verification service…",
   "Generating an answer, then checking its claims — this can take a few seconds…",
-  "Still working — if the backend has been idle, it may be waking up (Render free tier)…",
+  "Still working — if the backend has been idle, it may be waking up …",
   "Still working…",
 ]
 

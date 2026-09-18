@@ -64,7 +64,7 @@ export function BackendStatus() {
     status === "checking"
       ? "Checking API…"
       : status === "waking"
-        ? "Waking up API… (Render free tier can take up to a minute)"
+        ? "Waking up API… this can take a few seconds"
         : status === "online"
           ? "API connected"
           : "API unavailable"

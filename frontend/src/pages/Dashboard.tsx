@@ -9,6 +9,7 @@ import { VerificationBreakdown } from "../components/VerificationBreakdown"
 import { PerformancePanel } from "../components/PerformancePanel"
 import { analyzeAnswer } from "../api/detector"
 import type { AnalysisMode, AnalysisResponse } from "../types/detector"
+import ReactMarkdown from "react-markdown"
 
 export function Dashboard() {
   const [promptText, setPromptText] = useState("")
@@ -49,7 +50,18 @@ export function Dashboard() {
           <div>
             <p className="text-xs font-medium text-ink-faint">AI-generated answer (this is what was verified)</p>
             <p className="mt-1 whitespace-pre-wrap rounded-[6px] border border-border bg-surface p-4 text-sm text-ink-muted">
-              {result.answer}
+              <div className="answer-content">
+                <ReactMarkdown
+                  components={{
+                    strong: ({ children }) => <strong>{children}</strong>,
+                    ul: ({ children }) => <ul>{children}</ul>,
+                    li: ({ children }) => <li>{children}</li>,
+                  }}
+                >
+                  {result.answer}
+                </ReactMarkdown>
+              </div>
+
             </p>
           </div>
 
