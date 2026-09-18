@@ -50,6 +50,11 @@ describe("apiRequest error normalization", () => {
     })
   })
 
+  it("maps 404 to not_found", async () => {
+    vi.mocked(fetch).mockResolvedValue(mockFetchResponse(404, { detail: "Not Found" }))
+    await expect(apiRequest("/nonexistent")).rejects.toMatchObject({ kind: "not_found", status: 404 })
+  })
+
   it("maps 500 to server_error without leaking backend detail structure", async () => {
     vi.mocked(fetch).mockResolvedValue(mockFetchResponse(500, { error: "internal server error" }))
     await expect(apiRequest("/ask")).rejects.toMatchObject({ kind: "server_error" })

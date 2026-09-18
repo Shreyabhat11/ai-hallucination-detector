@@ -11,7 +11,7 @@ import { analyzeAnswer } from "../api/detector"
 import type { AnalysisMode, AnalysisResponse } from "../types/detector"
 
 export function Dashboard() {
-  const [answerText, setAnswerText] = useState("")
+  const [promptText, setPromptText] = useState("")
   const [mode, setMode] = useState<AnalysisMode>("standard")
   const [status, setStatus] = useState<"idle" | "loading" | "error" | "done">("idle")
   const [result, setResult] = useState<AnalysisResponse | null>(null)
@@ -21,7 +21,7 @@ export function Dashboard() {
     setStatus("loading")
     setError(null)
     try {
-      const response = await analyzeAnswer(answerText, mode)
+      const response = await analyzeAnswer(promptText, mode)
       setResult(response)
       setStatus("done")
     } catch (err) {
@@ -33,8 +33,8 @@ export function Dashboard() {
   return (
     <div className="mx-auto max-w-[1180px] px-6 py-8">
       <InputPanel
-        value={answerText}
-        onChange={setAnswerText}
+        value={promptText}
+        onChange={setPromptText}
         mode={mode}
         onModeChange={setMode}
         onAnalyze={runAnalysis}
@@ -47,7 +47,7 @@ export function Dashboard() {
       {status === "done" && result && (
         <div className="mt-6 space-y-6">
           <div>
-            <p className="text-xs font-medium text-ink-faint">Answer analyzed</p>
+            <p className="text-xs font-medium text-ink-faint">AI-generated answer (this is what was verified)</p>
             <p className="mt-1 whitespace-pre-wrap rounded-[6px] border border-border bg-surface p-4 text-sm text-ink-muted">
               {result.answer}
             </p>

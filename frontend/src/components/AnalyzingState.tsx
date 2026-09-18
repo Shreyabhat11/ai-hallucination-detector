@@ -8,7 +8,8 @@ import { useEffect, useState } from "react"
 // backend actually returned.
 const labels = [
   "Contacting the verification service…",
-  "This can take a few seconds, especially in Deep mode…",
+  "Generating an answer, then checking its claims — this can take a few seconds…",
+  "Still working — if the backend has been idle, it may be waking up (Render free tier)…",
   "Still working…",
 ]
 

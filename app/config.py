@@ -10,15 +10,17 @@ PRIMARY_MODEL = "gemini-2.5-flash"   # fast + cheap
 VERIFIER_MODEL = "gemini-2.5-flash"
 
 # --- Security / robustness settings -----------------------------------
-# All overridable via env vars so Render/Streamlit Cloud config doesn't
-# require a code change.
+# All overridable via env vars so the deployment's config doesn't require
+# a code change.
 
-# Comma-separated list of allowed origins for CORS. Defaults to localhost
-# only -- deliberately NOT a wildcard. Set this to the actual Streamlit
-# Cloud URL (e.g. "https://your-app.streamlit.app") in the deployment's
-# environment variables.
+# Comma-separated list of allowed origins for CORS. Defaults to the Vite
+# dev server's origin -- deliberately NOT a wildcard. Set this to the
+# actual deployed frontend URL (e.g. "https://your-frontend.vercel.app")
+# via the ALLOWED_ORIGINS env var in the Render deployment's settings.
+# Multiple origins: comma-separated, e.g.
+#   ALLOWED_ORIGINS=http://localhost:5173,https://your-frontend.vercel.app
 ALLOWED_ORIGINS = [
-    o.strip() for o in os.getenv("ALLOWED_ORIGINS", "http://localhost:8501").split(",") if o.strip()
+    o.strip() for o in os.getenv("ALLOWED_ORIGINS", "http://localhost:5174").split(",") if o.strip()
 ]
 
 # Sliding-window rate limit: N requests per WINDOW_SECONDS per client IP.

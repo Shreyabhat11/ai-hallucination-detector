@@ -27,8 +27,8 @@ load_default_kb()
 app = FastAPI(title="AI Hallucination Detector", version="0.3.0")
 
 # CORS: restricted to ALLOWED_ORIGINS (see app/config.py), not a wildcard.
-# Set ALLOWED_ORIGINS in the deployment environment to the real Streamlit
-# Cloud URL.
+# Set ALLOWED_ORIGINS in the deployment environment to the real deployed
+# frontend URL (e.g. Vercel/Netlify).
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,

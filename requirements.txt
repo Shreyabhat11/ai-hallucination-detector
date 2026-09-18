@@ -3,7 +3,6 @@ uvicorn
 python-dotenv
 numpy
 pydantic
-streamlit
 ddgs
 google-genai
 

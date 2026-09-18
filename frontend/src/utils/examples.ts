@@ -1,17 +1,20 @@
-export const exampleAnswers = [
+// These are example PROMPTS (questions), not pre-written answers -- the
+// backend generates its own answer from whatever is submitted here, then
+// verifies that generated answer. The labels describe what kind of answer
+// the question tends to produce, as a hint for what to expect, not a
+// guarantee (the actual AI answer, and its verification result, can vary
+// between runs).
+export const examplePrompts = [
   {
-    label: "Factual",
-    text:
-      "The Eiffel Tower was completed in 1889 for the World's Fair in Paris. It stands 330 meters tall and was designed by engineer Gustave Eiffel's company. It remained the tallest man-made structure in the world for 41 years.",
+    label: "Straightforward",
+    text: "When was the Eiffel Tower built, and how tall is it?",
   },
   {
-    label: "Questionable",
-    text:
-      "The Great Wall of China is the only man-made structure visible from the Moon with the naked eye. It was built entirely during the reign of Emperor Qin Shi Huang in a single decade, and it stretches over 50,000 kilometers in one continuous, unbroken wall.",
+    label: "Prone to myths",
+    text: "Is the Great Wall of China visible from space with the naked eye?",
   },
   {
-    label: "Mixed",
-    text:
-      "Python was created by Guido van Rossum and first released in 1991. It is always the fastest programming language for any task, which is why every major tech company has completely replaced their backend systems with it.",
+    label: "Mixed / opinionated",
+    text: "Who created Python, when was it released, and is it the fastest programming language?",
   },
 ] as const

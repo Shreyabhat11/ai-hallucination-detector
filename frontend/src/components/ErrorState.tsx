@@ -4,7 +4,7 @@ function messageFor(error: unknown): string {
   if (error instanceof ApiError) {
     switch (error.kind) {
       case "network":
-        return "Unable to connect to the verification service. Please try again."
+        return "Unable to connect to the verification service. Please try again. (If this keeps happening: the backend may be down, or may not be configured to allow requests from this site -- check the browser console for details.)"
       case "timeout":
       case "server_timeout":
         return "The analysis is taking longer than expected. Please try again."
@@ -15,14 +15,16 @@ function messageFor(error: unknown): string {
           ? `Too many requests -- please wait about ${error.retryAfterSeconds}s and try again.`
           : "Too many requests -- please wait a moment and try again."
       case "payload_too_large":
-        return "That answer is too large to analyze. Please shorten it."
+        return "That question is too long. Please shorten it."
+      case "not_found":
+        return "The verification service endpoint could not be found. Please try again later."
       case "server_error":
-        return "Something went wrong while analyzing this answer."
+        return "Something went wrong while generating and verifying the answer."
       default:
-        return "Something went wrong while analyzing this answer."
+        return "Something went wrong while generating and verifying the answer."
     }
   }
-  return "Something went wrong while analyzing this answer."
+  return "Something went wrong while generating and verifying the answer."
 }
 
 export function ErrorState({ error, onRetry }: { error: unknown; onRetry?: () => void }) {

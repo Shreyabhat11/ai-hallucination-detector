@@ -1,3 +1,7 @@
+# Legacy UI -- superseded by the React frontend in frontend/. Kept here for
+# reference/optional local use, but no longer part of the main deployment
+# and not installed by requirements.txt. To run this, install its own
+# dependency first: `pip install streamlit`.
 import streamlit as st
 import requests
 

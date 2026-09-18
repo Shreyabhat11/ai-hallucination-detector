@@ -90,11 +90,12 @@ export interface HealthResponse {
 // Discriminated error info the API client normalizes backend error shapes
 // into, so components never need to know which endpoint failed how.
 export type ApiErrorKind =
-  | "network" // couldn't reach the backend at all
+  | "network" // couldn't reach the backend at all (or a CORS rejection -- browsers make these indistinguishable to JS)
   | "timeout" // client-side fetch timeout
   | "validation" // 422
   | "rate_limited" // 429
   | "payload_too_large" // 413
+  | "not_found" // 404
   | "server_timeout" // 504
   | "server_error" // 500
   | "unknown"

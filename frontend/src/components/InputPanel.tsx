@@ -1,6 +1,6 @@
 import { useState } from "react"
 import type { AnalysisMode } from "../types/detector"
-import { exampleAnswers } from "../utils/examples"
+import { examplePrompts } from "../utils/examples"
 
 const MAX_CHARS = 4000
 
@@ -27,7 +27,7 @@ export function InputPanel({ value, onChange, mode, onModeChange, onAnalyze, dis
 
   function handleAnalyzeClick() {
     if (trimmedEmpty) {
-      setValidationMessage("Please enter an answer to analyze.")
+      setValidationMessage("Please enter a question or prompt to analyze.")
       return
     }
     if (overLimit) {
@@ -40,14 +40,15 @@ export function InputPanel({ value, onChange, mode, onModeChange, onAnalyze, dis
 
   return (
     <section className="rounded-[6px] border border-border bg-surface p-6">
-      <h2 className="font-display text-lg font-semibold">Analyze an AI-generated answer</h2>
+      <h2 className="font-display text-lg font-semibold">Ask a question to verify</h2>
       <p className="mt-1 text-sm text-ink-muted">
-        Paste an answer produced by an AI system. Each factual claim in it will be checked against evidence.
+        Enter a question or prompt. The AI will generate an answer, then each factual claim in that answer will be
+        checked against evidence.
       </p>
 
       <textarea
         className="mt-4 h-40 w-full resize-y rounded-[4px] border border-border bg-bg p-3 text-sm text-ink placeholder:text-ink-faint focus-visible:outline-2 focus-visible:outline-ink"
-        placeholder="Paste an AI-generated answer here…"
+        placeholder="Ask a question… (e.g. “When was the Eiffel Tower built?”)"
         value={value}
         onChange={(e) => {
           onChange(e.target.value)
@@ -61,7 +62,7 @@ export function InputPanel({ value, onChange, mode, onModeChange, onAnalyze, dis
           {value.length.toLocaleString()} / {MAX_CHARS.toLocaleString()} characters
         </span>
         <div className="flex gap-3">
-          {exampleAnswers.map((ex) => (
+          {examplePrompts.map((ex) => (
             <button
               key={ex.label}
               type="button"
@@ -69,7 +70,7 @@ export function InputPanel({ value, onChange, mode, onModeChange, onAnalyze, dis
               onClick={() => onChange(ex.text)}
               disabled={disabled}
             >
-              Load {ex.label.toLowerCase()} example
+              Try: "{ex.label}"
             </button>
           ))}
         </div>
@@ -112,7 +113,7 @@ export function InputPanel({ value, onChange, mode, onModeChange, onAnalyze, dis
             onClick={handleAnalyzeClick}
             disabled={disabled}
           >
-            Analyze answer
+            Ask &amp; verify
           </button>
         </div>
       </div>
