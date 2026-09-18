@@ -1,4 +1,3 @@
-````markdown
 # AI Hallucination Detector
 
 Evidence-based verification of AI-generated answers using claim extraction, semantic retrieval, web evidence, and LLM-based verification.
@@ -58,7 +57,7 @@ Evidence Aggregation
 Reliability Analysis
      ↓
 Explainable UI
-````
+
 
 ---
 
