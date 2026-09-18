@@ -20,7 +20,7 @@ VERIFIER_MODEL = "gemini-2.5-flash"
 # Multiple origins: comma-separated, e.g.
 #   ALLOWED_ORIGINS=http://localhost:5173,https://your-frontend.vercel.app
 ALLOWED_ORIGINS = [
-    o.strip() for o in os.getenv("ALLOWED_ORIGINS", "http://localhost:5174").split(",") if o.strip()
+    o.strip() for o in os.getenv("ALLOWED_ORIGINS", "http://localhost:5174,https://localhost:5173,https://frontend-coral-one-6cme2r1fvt.vercel.app/").split(",") if o.strip()
 ]
 
 # Sliding-window rate limit: N requests per WINDOW_SECONDS per client IP.

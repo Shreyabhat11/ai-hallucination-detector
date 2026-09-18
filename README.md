@@ -1,223 +1,1079 @@
+````markdown
 # AI Hallucination Detector
 
-Fact-checks AI-generated answers at the claim level: it takes a question,
-generates an answer with Gemini, breaks that answer into individual factual
-claims, checks each one against evidence (a small local knowledge base and
-live web search), and reports a risk score with an explainable breakdown of
-what was checked and why.
+Evidence-based verification of AI-generated answers using claim extraction, semantic retrieval, web evidence, and LLM-based verification.
 
-## Architecture
+The system generates an answer from a user prompt, extracts factual claims from that answer, evaluates those claims against available evidence, and presents an explainable verification result through a React frontend.
 
-```
-React/Vite frontend  --(HTTPS, JSON)-->  FastAPI backend  -->  Gemini
-     (frontend/)                            (this repo)        + web search (DDGS)
-                                                  |
-                                         claim extraction
-                                         fact verification (parallel, per claim)
-                                         logic / citation / confidence checks
-                                         self-consistency check
-                                                  |
-                                            risk scoring
-```
+## Live Application
 
-- **Backend**: FastAPI, deployed on Render. Single endpoint (`POST /ask`)
-  takes a prompt, generates an answer via Gemini, and runs it through a
-  parallelized verification pipeline. See "How it works" below.
-- **Frontend**: React + TypeScript + Vite + Tailwind, in `frontend/`. A
-  standalone dashboard that calls the backend's API — it has no server-side
-  logic of its own. Deployed separately (e.g. Vercel/Netlify).
-- **Legacy**: `streamlit_app.py` is the original UI, superseded by the
-  React frontend. Kept for reference; not part of the current deployment
-  and not installed by `requirements.txt` (see "Legacy Streamlit UI" below).
+**Frontend:** https://frontend-coral-one-6cme2r1fvt.vercel.app/
+**Backend API:** https://ai-hallucination-detector-1.onrender.com
 
-## How it works
+**API Health Check:** https://ai-hallucination-detector-1.onrender.com/health
 
-1. **Generate** — the submitted prompt goes to Gemini, which produces an answer.
-2. **Extract claims** — the answer is broken into individual factual statements.
-3. **Verify** — each claim is checked concurrently (bounded parallelism) against:
-   - a small local knowledge base (embedding similarity)
-   - live web search results
-   - an LLM verifier call, given that evidence
-   Each claim gets one of: `SUPPORTED`, `PARTIALLY_SUPPORTED`, `CONTRADICTED`,
-   `UNCERTAIN`, or `INSUFFICIENT_EVIDENCE` (used when no evidence was found
-   at all — distinct from a claim being judged false).
-4. **Other signals**, run concurrently with claim verification:
-   - **Logic check** — does the answer contradict itself?
-   - **Citation check** — for URL citations, is the source actually
-     reachable? (Reachable ≠ proves the claim — just that it exists and
-     responds.) Bare `[1]`/`(Author, Year)` references with no URL are
-     honestly labeled `NO_SOURCE` rather than guessed at.
-   - **Confidence language** — a density-normalized heuristic comparing
-     certainty language ("always", "definitely") against hedging language
-     ("might", "possibly"), not a simple keyword count.
-   - **Self-consistency** — asks the same model the same prompt twice and
-     compares outputs. This is explicitly *not* genuine cross-model
-     verification (it's one model checked against itself), and the code
-     and API are honest about that rather than overselling it.
-5. **Score** — the signals above combine into a 0-100 risk score using
-   heuristic weights (see `app/detector/scoring.py`) — not a statistically
-   calibrated probability. Labeled as such throughout.
+---
 
-### Analysis modes
+## Overview
 
-| Mode | Web search | Logic check | Self-consistency check | Claim concurrency |
-|---|---|---|---|---|
-| Quick | No (KB only) | Skipped | Skipped | 8 |
-| Standard | Yes | Yes | Yes | 5 |
-| Deep | Yes | Yes | Yes | 3 (gentler on rate limits) |
+Large language models can generate fluent and convincing answers that contain unsupported or incorrect factual claims.
 
-## Setup
+This project explores a practical approach to detecting such claims by combining:
 
-### Backend
+- LLM-generated answers
+- Claim extraction
+- Semantic similarity search
+- Local knowledge retrieval
+- Web evidence retrieval
+- LLM-based evidence verification
+- Claim-level scoring
+- Explainable verification results
+- Performance and backend status monitoring
 
-```bash
-python -m venv .venv
-source .venv/bin/activate        # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
-```
+Instead of treating hallucination detection as a single black-box classification problem, the application breaks an answer into individual claims and evaluates those claims against evidence.
 
-Create `.env` in the project root:
+### Example
 
-```
-GEMINI_API_KEY=your_api_key_here
-```
+A user asks:
 
-Get a key from [Google AI Studio](https://aistudio.google.com/app/apikey).
+> "When was the Eiffel Tower built, and how tall is it?"
 
-Run it:
+The system:
 
-```bash
-uvicorn main:app --reload
-```
+```text
+User Prompt
+     ↓
+Answer Generation
+     ↓
+Claim Extraction
+     ↓
+ ┌───────────────┐
+ │ Claim 1       │ → Evidence retrieval → Verification
+ │ Claim 2       │ → Evidence retrieval → Verification
+ │ Claim 3       │ → Evidence retrieval → Verification
+ └───────────────┘
+     ↓
+Evidence Aggregation
+     ↓
+Reliability Analysis
+     ↓
+Explainable UI
+````
 
-Open `http://127.0.0.1:8000/docs` for interactive API docs.
+---
 
-Relevant backend env vars (all optional, see `app/config.py` for defaults):
+# Key Features
 
-| Variable | Purpose | Default |
-|---|---|---|
-| `GEMINI_API_KEY` | Gemini API key | — (required) |
-| `ALLOWED_ORIGINS` | Comma-separated CORS allowlist | `http://localhost:5173` |
-| `RATE_LIMIT_REQUESTS` / `RATE_LIMIT_WINDOW_SECONDS` | Per-IP rate limit on `/ask` | 20 requests / 60s |
-| `MAX_REQUEST_BODY_BYTES` | Reject larger request bodies | 50 KB |
-| `REQUEST_TIMEOUT_SECONDS` | Hard ceiling on total request processing | 60s |
+## 1. Claim-Level Verification
 
-### Frontend
+Rather than assigning a single score to an entire answer, the system breaks the generated response into factual claims.
 
-```bash
-cd frontend
-npm install
-cp .env.example .env
-# edit .env: set VITE_API_URL to your backend's URL
-npm run dev
+Each claim can then be evaluated independently.
+
+This makes the result easier to inspect and explain.
+
+---
+
+## 2. Evidence-Based Verification
+
+Claims can be evaluated using multiple evidence sources:
+
+* Local semantic knowledge base
+* Web search results
+* LLM-based verification
+* Logical / linguistic signals
+
+The goal is to provide evidence-backed verification instead of relying entirely on model confidence.
+
+---
+
+## 3. Semantic Retrieval
+
+The application uses Google's embedding API to generate semantic representations of text.
+
+Current embedding implementation uses:
+
+```text
+gemini-embedding-001
 ```
 
-Opens on `http://localhost:5173`. Full details (env vars, build, deploy) in
-`frontend/README.md`.
+The local vector store compares query and document embeddings using cosine similarity.
 
-**Important**: the backend's `ALLOWED_ORIGINS` must include whatever origin
-the frontend is actually running on, or the browser will block the request
-via CORS. The defaults above match each other for local dev
-(`localhost:5173`), but a deployed frontend URL must be added explicitly.
+This keeps the deployment lightweight compared with running a local transformer embedding model.
 
-### Running both together locally
+---
 
-```bash
-# terminal 1
-uvicorn main:app --reload
-# terminal 2
-cd frontend && npm run dev
+## 4. Web Evidence Retrieval
+
+The application can retrieve supporting information from web search results for factual claims.
+
+This provides a second evidence source beyond the local knowledge base.
+
+Web retrieval is particularly useful when a claim is not covered by the local documents.
+
+---
+
+## 5. LLM-Based Verification
+
+Retrieved evidence is passed to a verifier model which evaluates whether the evidence supports the claim.
+
+The verifier is instructed to return:
+
+```text
+YES
+NO
+UNCERTAIN
 ```
 
-## API
+These results are converted into verification signals used by the scoring pipeline.
 
-**`POST /ask`**
+---
+
+## 6. Multiple Analysis Modes
+
+The frontend provides three analysis modes:
+
+| Mode     | Purpose                                 |
+| -------- | --------------------------------------- |
+| Quick    | Faster analysis with reduced processing |
+| Standard | Balanced verification                   |
+| Deep     | More detailed verification              |
+
+The exact latency and verification depth depend on the backend processing and external API response times.
+
+---
+
+# Architecture
+
+```text
+                         ┌──────────────────────┐
+                         │      React / Vite    │
+                         │      Frontend        │
+                         │                      │
+                         │ Input                │
+                         │ Results              │
+                         │ Claims               │
+                         │ Evidence             │
+                         │ Performance          │
+                         └──────────┬───────────┘
+                                    │
+                                    │ HTTPS
+                                    ▼
+                         ┌──────────────────────┐
+                         │      FastAPI         │
+                         │      Backend         │
+                         └──────────┬───────────┘
+                                    │
+                     ┌──────────────┼──────────────┐
+                     │              │              │
+                     ▼              ▼              ▼
+              ┌────────────┐ ┌────────────┐ ┌─────────────┐
+              │   Gemini   │ │  Semantic  │ │  Web Search │
+              │    LLM     │ │ Retrieval  │ │    (DDGS)   │
+              └────────────┘ └────────────┘ └─────────────┘
+                     │              │              │
+                     └──────────────┼──────────────┘
+                                    ▼
+                         ┌──────────────────────┐
+                         │ Evidence Verification│
+                         │ & Scoring Pipeline   │
+                         └──────────┬───────────┘
+                                    │
+                                    ▼
+                         ┌──────────────────────┐
+                         │ Structured API Result │
+                         └──────────────────────┘
+```
+
+---
+
+# Technology Stack
+
+## Frontend
+
+* React
+* TypeScript
+* Vite
+* React Markdown
+* CSS
+
+The frontend was migrated from the original Streamlit prototype to a standalone React application to provide a more flexible production-style user interface.
+
+## Backend
+
+* Python
+* FastAPI
+* Pydantic
+* Uvicorn
+
+## AI / ML
+
+* Google Gemini
+* `gemini-embedding-001`
+* Semantic similarity
+* LLM-based verification
+
+## Retrieval
+
+* Local in-memory vector store
+* Cosine similarity
+* DuckDuckGo Search (`ddgs`)
+
+## Deployment
+
+* Vercel — frontend
+* Render — backend
+
+---
+
+# Backend Engineering Improvements
+
+The initial implementation was functional but had several issues that became apparent during production-oriented testing.
+
+The backend was subsequently cleaned up and modified with deployment reliability, resource usage, and API robustness in mind.
+
+## 1. Removed Heavy Local Embedding Dependencies
+
+The original implementation used:
+
+```text
+sentence-transformers
+FAISS
+PyTorch
+```
+
+This created unnecessary memory pressure for a small Render deployment.
+
+The application was migrated to Google's hosted embedding API:
+
+```text
+gemini-embedding-001
+```
+
+This significantly reduces the amount of ML infrastructure that needs to run inside the API container.
+
+### Result
+
+The backend no longer needs to load a large local transformer model into memory.
+
+This was particularly important because the application is deployed on a resource-constrained hosting environment.
+
+---
+
+## 2. Migrated to the Current Google GenAI SDK
+
+The backend uses:
+
+```python
+from google import genai
+```
+
+instead of the older:
+
+```python
+google-generativeai
+```
+
+This keeps the implementation aligned with the current Google GenAI Python SDK.
+
+---
+
+## 3. Environment-Based Secret Management
+
+API credentials are not stored directly in source code.
+
+The application reads:
+
+```text
+GEMINI_API_KEY
+```
+
+from environment variables.
+
+Local development can use a `.env` file while production credentials are configured through the hosting platform.
+
+### Security principle
+
+Secrets should never be committed to Git.
+
+The repository should therefore contain only configuration examples such as:
+
+```text
+.env.example
+```
+
+and never the actual API key.
+
+---
+
+## 4. CORS Configuration
+
+The API explicitly controls which frontend origins are allowed to access the backend.
+
+For example:
+
+```text
+http://localhost:5173
+http://localhost:5174
+https://your-production-frontend.vercel.app
+```
+
+Production origins are configured through:
+
+```text
+ALLOWED_ORIGINS
+```
+
+This prevents the API from relying on an unrestricted wildcard CORS policy.
+
+---
+
+## 5. API Error Handling
+
+The frontend distinguishes between several backend/network failure conditions, including:
+
+* Network failure
+* Request timeout
+* Validation error
+* Not found
+* Payload too large
+* Rate limiting
+* Server error
+* Gateway timeout
+
+This allows the UI to provide meaningful feedback instead of simply displaying:
+
+```text
+Failed to fetch
+```
+
+---
+
+## 6. Request Timeout Handling
+
+The frontend uses an `AbortController` to prevent indefinitely hanging requests.
+
+The current client-side timeout is:
+
+```text
+90 seconds
+```
+
+If the backend takes longer than the configured limit, the request is cancelled and the UI displays an appropriate timeout message.
+
+This is particularly important because the verification pipeline depends on external AI and web services.
+
+---
+
+## 7. Structured API Communication
+
+The frontend communicates with the FastAPI backend through a centralized API client rather than scattering raw `fetch()` calls throughout UI components.
+
+This provides a single place for:
+
+* Base URL configuration
+* Timeout handling
+* HTTP error handling
+* JSON parsing
+* Debug logging
+* API error classification
+
+---
+
+## 8. Lightweight Deployment Architecture
+
+The production architecture intentionally avoids unnecessary infrastructure.
+
+```text
+Vercel
+  │
+  │ HTTPS
+  ▼
+FastAPI on Render
+  │
+  ├── Gemini
+  ├── Gemini Embeddings
+  └── Web Search
+```
+
+There is currently no requirement for:
+
+* Kubernetes
+* GPU infrastructure
+* Dedicated vector database
+* Message queue
+* Redis cluster
+
+This keeps the system appropriate for a portfolio-scale production deployment while maintaining a clear path for future scaling.
+
+---
+
+# Frontend
+
+The original application was implemented as a Streamlit prototype.
+
+The frontend was rebuilt using React + TypeScript + Vite.
+
+The current UI provides dedicated components for:
+
+* Prompt input
+* Analysis mode selection
+* Generated answer
+* Reliability summary
+* Claim-level results
+* Evidence
+* Verification breakdown
+* Performance information
+* Backend health status
+* Loading states
+* Error states
+
+Generated Markdown is rendered properly in the UI, so model output such as:
+
+```markdown
+**Original height:** 300 meters
+```
+
+is displayed as formatted text instead of exposing Markdown syntax to the user.
+
+---
+
+# API
+
+## Health Check
+
+```http
+GET /health
+```
+
+Example:
 
 ```json
-// request
-{ "prompt": "When was the Eiffel Tower built?", "mode": "standard" }
-```
-
-```json
-// response (200) -- shape simplified, see app/schemas/response_schema.py
-// and app/detector/pipeline.py for the exact fields
 {
-  "answer": "...",
-  "risk_score": 12,
-  "module_scores": { "fact": 0.9, "logic": 1.0, "citation": 0.5, "confidence": 0.8, "cross": 1.0 },
-  "claims": [{ "claim": "...", "verdict": "SUPPORTED", "score": 1.0, "evidence": "...", "sources": [...] }],
-  "citations": [{ "type": "url", "text": "...", "verdict": "SUPPORTED" }],
-  "mode": "standard",
-  "latency": { "total_ms": 4200, "generation_ms": 600, "claim_extraction_ms": 400, "..." : "..." }
+  "status": "ok"
 }
 ```
 
-`logic_ms` / `cross_model_ms` are **absent** (not zero) in Quick mode, since
-those stages are skipped entirely.
+This endpoint is used by the frontend to determine whether the backend is reachable.
 
-Errors: `422` (invalid input), `413` (body too large), `429` (rate
-limited, with `Retry-After` header), `500` (generic — no stack traces are
-ever returned to the client), `504` (request timed out).
+---
 
-**`GET /health`** → `{"status": "ok", "kb_documents": N, "embedding_cache": {...}, "web_search_cache": {...}}`
+## Ask & Verify
 
-## Testing
+```http
+POST /ask
+```
+
+Request:
+
+```json
+{
+  "prompt": "When was the Eiffel Tower built, and how tall is it?",
+  "mode": "deep"
+}
+```
+
+Supported modes:
+
+```text
+quick
+standard
+deep
+```
+
+The endpoint generates an answer and runs the verification pipeline against the resulting claims.
+
+---
+
+# Verification Pipeline
+
+The current verification flow is approximately:
+
+```text
+1. Receive user prompt
+        ↓
+2. Generate AI answer
+        ↓
+3. Extract factual claims
+        ↓
+4. Retrieve local semantic evidence
+        ↓
+5. Retrieve web evidence
+        ↓
+6. Verify claims against evidence
+        ↓
+7. Calculate verification signals
+        ↓
+8. Aggregate results
+        ↓
+9. Return structured response
+        ↓
+10. Render explanation in frontend
+```
+
+The architecture is intentionally modular so that individual verification strategies can be improved independently.
+
+---
+
+# Reliability Scoring
+
+The project combines several signals when producing the overall reliability analysis.
+
+These include signals related to:
+
+* Factual evidence
+* Logical consistency
+* Citation presence
+* Confidence language
+* Cross-checking / consistency
+
+The resulting score should be interpreted as a **heuristic reliability indicator**, not as a calibrated probability that an answer is hallucinated.
+
+This distinction is important because a numerical score without a representative benchmark dataset and calibration procedure should not be presented as a scientifically validated probability.
+
+---
+
+# Performance Considerations
+
+LLM and web-based verification introduces latency because the request may involve several external operations.
+
+Potential latency sources include:
+
+* Answer generation
+* Claim extraction
+* Embedding requests
+* Web search
+* Verification model calls
+* Network latency
+* Render cold starts
+
+The frontend therefore exposes performance information rather than hiding the fact that verification is a multi-stage process.
+
+Future optimization areas include:
+
+* Parallel claim verification
+* Request caching
+* Embedding caching
+* Search-result caching
+* Reducing unnecessary LLM calls
+* Batch embedding
+* Per-stage latency instrumentation
+* Async processing where appropriate
+
+---
+
+# Security Considerations
+
+Security was considered at both the frontend and backend levels.
+
+## Secrets
+
+API keys are stored using environment variables.
+
+Never commit:
+
+```text
+GEMINI_API_KEY
+```
+
+or other credentials to Git.
+
+---
+
+## CORS
+
+Production CORS origins should be explicitly configured through:
+
+```text
+ALLOWED_ORIGINS
+```
+
+rather than allowing arbitrary browser origins.
+
+---
+
+## Input Validation
+
+The FastAPI API uses Pydantic models to validate request structure before processing.
+
+Input limits should also be maintained as the application evolves to prevent unnecessarily large prompts from consuming excessive API resources.
+
+---
+
+## Network Reliability
+
+External service calls can fail independently.
+
+The application therefore handles:
+
+* API failures
+* Network failures
+* Timeouts
+* Invalid responses
+* Backend errors
+
+rather than assuming every external dependency is always available.
+
+---
+
+## Logging
+
+Sensitive credentials and unnecessary user content should not be written to logs.
+
+Debug logging in the frontend is intended for development and troubleshooting and should be reviewed before production-scale usage.
+
+---
+
+## Prompt Injection
+
+Because the system retrieves external evidence and passes content between multiple LLM stages, prompt injection is an important future security consideration.
+
+Retrieved web content should be treated as **untrusted data**, not as instructions.
+
+A future hardened implementation should:
+
+* Separate evidence from system instructions
+* Clearly delimit retrieved content
+* Instruct verification models to treat evidence as data
+* Prevent retrieved text from changing the verification task
+* Sanitize or constrain external content where appropriate
+
+---
+
+# Current Limitations
+
+This project is a production-oriented portfolio implementation, not a fully validated commercial hallucination detection platform.
+
+Important limitations include:
+
+### 1. Heuristic Scoring
+
+The overall reliability score currently combines heuristic signals.
+
+It is not a calibrated probability.
+
+---
+
+### 2. Small Local Knowledge Base
+
+The local vector store is intentionally lightweight and currently contains a small set of documents.
+
+A production system handling large document collections would benefit from a persistent vector database.
+
+Potential future options include:
+
+* PostgreSQL + pgvector
+* Qdrant
+* Weaviate
+* Pinecone
+
+---
+
+### 3. Web Evidence Quality
+
+Search results are not equivalent to authoritative sources.
+
+A stronger production implementation would:
+
+* Retrieve source URLs
+* Rank source quality
+* Extract relevant passages
+* Check source credibility
+* Detect conflicting sources
+* Show direct supporting evidence for each claim
+
+---
+
+### 4. Verification Is Not Ground Truth
+
+An LLM verifier can itself make mistakes.
+
+Therefore:
+
+```text
+LLM-generated answer
+        ↓
+LLM-based verification
+```
+
+does not guarantee correctness.
+
+The system is designed to make verification more transparent by combining model judgments with retrieved evidence.
+
+---
+
+### 5. No Scientific Accuracy Claim
+
+The application should not claim a definitive hallucination-detection accuracy without a reproducible benchmark dataset, labeling methodology, evaluation protocol, and held-out test set.
+
+Future evaluation should include metrics such as:
+
+* Precision
+* Recall
+* F1
+* ROC-AUC
+* Calibration
+* False-positive rate
+* False-negative rate
+* Claim-level accuracy
+
+---
+
+# Testing
+
+The backend includes automated tests covering core application behavior.
+
+Tests should be run locally with:
 
 ```bash
-# backend
-pip install -r requirements.txt   # includes pytest, pytest-asyncio, httpx
-pytest -v
+pytest
+```
 
-# frontend
+Python syntax can be checked with:
+
+```bash
+python -m compileall .
+```
+
+Frontend production build:
+
+```bash
+npm run build
+```
+
+---
+
+# Local Development
+
+## Backend
+
+Clone the repository:
+
+```bash
+git clone https://github.com/Shreyabhat11/ai-hallucination-detector.git
+cd ai-hallucination-detector
+```
+
+Create a Python environment:
+
+```bash
+python -m venv .venv
+```
+
+Activate it on Windows:
+
+```bash
+.venv\Scripts\activate
+```
+
+Install dependencies:
+
+```bash
+pip install -r requirements.txt
+```
+
+Create a `.env` file:
+
+```env
+GEMINI_API_KEY=your_api_key_here
+ALLOWED_ORIGINS=http://localhost:5173,http://localhost:5174
+```
+
+Start the API:
+
+```bash
+uvicorn main:app --reload
+```
+
+The API will be available at:
+
+```text
+http://localhost:8000
+```
+
+API documentation:
+
+```text
+http://localhost:8000/docs
+```
+
+---
+
+# Frontend Development
+
+Move into the frontend directory:
+
+```bash
 cd frontend
-npm run build   # type-check + production build
-npm run lint    # oxlint
-npm run test    # vitest
 ```
 
-Backend tests mock all LLM/web-search calls (no live network needed).
-Frontend tests cover the API client's error normalization and display
-logic with a mocked `fetch` (no live backend needed).
-
-## Legacy Streamlit UI
-
-`streamlit_app.py` predates the React frontend and is not part of the
-current deployment. It's kept only for reference. To run it, install its
-dependency separately (it's intentionally not in `requirements.txt`
-anymore, since the backend itself never imports `streamlit`):
+Install dependencies:
 
 ```bash
-pip install streamlit
-streamlit run streamlit_app.py
+npm install
 ```
 
-## Limitations
+Create:
 
-- **Risk scores are heuristic, not calibrated.** No evaluation dataset or
-  precision/recall/F1 numbers exist yet for this project. Treat the risk
-  score as a relative signal for comparing answers, not a validated
-  probability.
-- **"Self-consistency" is not cross-model verification.** It checks one
-  model against itself twice, not against an independent model.
-- **Prompt-injection defenses are a mitigation, not a guarantee** (see
-  `app/utils/prompt_safety.py`). There is no complete client-side defense
-  against prompt injection with current LLMs.
-- **Rate limiting and caching are in-process only** — correct for a
-  single-instance deployment, not correct across multiple workers/instances
-  without a shared store (deliberately not added, to keep this deployable
-  cheaply).
-- Citation checking verifies that a URL is *reachable*, not that it
-  actually supports the claim it's attached to.
+```text
+.env
+```
 
-## Tech stack
+with:
 
-Backend: Python, FastAPI, Gemini (`google-genai`), DDGS web search, NumPy
-(cosine similarity), an in-process TTL cache, pytest.
-Frontend: React, TypeScript, Vite, Tailwind CSS, vitest.
+```env
+VITE_API_URL=http://localhost:8000
+```
 
-## Future improvements
+Start the development server:
 
-- Real evaluation dataset + precision/recall/F1/calibration
-- User-provided knowledge base (upload PDF/TXT/DOCX for claim retrieval)
-- Batch evaluation (CSV of multiple answers → metrics dashboard)
-- CI (GitHub Actions running both test suites on push)
+```bash
+npm run dev
+```
+
+The Vite development server will provide the local frontend URL.
+
+---
+
+# Production Deployment
+
+## Frontend — Vercel
+
+The React/Vite frontend is deployed using Vercel.
+
+Production environment variable:
+
+```env
+VITE_API_URL=https://ai-hallucination-detector-1.onrender.com
+```
+
+Build command:
+
+```bash
+npm run build
+```
+
+Output directory:
+
+```text
+dist
+```
+
+---
+
+## Backend — Render
+
+The FastAPI backend is deployed on Render.
+
+Build command:
+
+```bash
+pip install -r requirements.txt
+```
+
+Start command:
+
+```bash
+uvicorn main:app --host 0.0.0.0 --port $PORT
+```
+
+Required environment variables:
+
+```text
+GEMINI_API_KEY
+ALLOWED_ORIGINS
+```
+
+Example:
+
+```text
+ALLOWED_ORIGINS=http://localhost:5173,http://localhost:5174,https://your-frontend.vercel.app
+```
+
+---
+
+# Production Checklist
+
+Before considering a deployment production-ready, verify:
+
+* [x] Frontend deployed
+* [x] Backend deployed
+* [x] HTTPS enabled
+* [x] API health endpoint available
+* [x] Production frontend connected to backend
+* [x] CORS configured
+* [x] API secrets stored as environment variables
+* [x] Frontend request timeout implemented
+* [x] API error states handled
+* [x] Production frontend build succeeds
+* [x] Heavy local embedding model removed
+* [x] API documentation available
+* [x] Automated tests available
+* [ ] Rate limiting
+* [ ] Authentication / authorization
+* [ ] Persistent vector database
+* [ ] Centralized structured logging
+* [ ] Monitoring and alerting
+* [ ] Comprehensive benchmark dataset
+* [ ] Score calibration
+* [ ] Automated security scanning
+
+The unchecked items represent areas for future hardening rather than features currently claimed by the application.
+
+---
+
+# Future Improvements
+
+## Verification Quality
+
+* Claim-to-evidence alignment
+* Source quality scoring
+* Contradiction detection
+* Better citation validation
+* Multi-source agreement
+* Temporal validity checks
+* Domain-specific verification
+
+## Performance
+
+* Parallel claim verification
+* Async processing
+* Embedding caching
+* Search caching
+* Reduced LLM calls
+* Batch verification
+* Per-stage latency metrics
+
+## Data & Retrieval
+
+* PDF/DOCX/TXT upload
+* Persistent document storage
+* PostgreSQL + pgvector
+* Hybrid keyword + semantic retrieval
+* Reranking
+* Document metadata filtering
+
+## Evaluation
+
+Build a labeled hallucination benchmark containing:
+
+```text
+Prompt
+Generated Answer
+Individual Claim
+Ground Truth
+Supporting Evidence
+Expected Verification
+```
+
+Then measure:
+
+```text
+Precision
+Recall
+F1
+ROC-AUC
+Calibration
+False Positive Rate
+False Negative Rate
+```
+
+This would allow the reliability score to evolve from a heuristic into an empirically calibrated signal.
+
+## Security
+
+* Rate limiting
+* Authentication
+* Abuse prevention
+* Request quotas
+* Prompt-injection defenses
+* Secure evidence isolation
+* Dependency vulnerability scanning
+* Structured audit logging
+
+---
+
+# Project Structure
+
+```text
+ai-hallucination-detector/
+│
+├── app/
+│   ├── config.py
+│   │
+│   ├── detector/
+│   │   ├── fact_check.py
+│   │   ├── citation_check.py
+│   │   ├── confidence.py
+│   │   ├── cross_model.py
+│   │   └── scoring.py
+│   │
+│   ├── llm/
+│   │   ├── generator.py
+│   │   └── verifier.py
+│   │
+│   ├── utils/
+│   │   ├── embeddings.py
+│   │   ├── similarity.py
+│   │   └── web_search.py
+│   │
+│   └── vector_db/
+│       └── simple_store.py
+│
+├── frontend/
+│   ├── src/
+│   │   ├── components/
+│   │   ├── api/
+│   │   ├── types/
+│   │   └── ...
+│   ├── package.json
+│   └── vite.config.ts
+│
+├── tests/
+│
+├── main.py
+├── requirements.txt
+└── README.md
+```
+
+---
+
+# Why This Project?
+
+This project was built to explore a practical problem at the intersection of:
+
+* Generative AI
+* Retrieval-Augmented Generation
+* Information retrieval
+* LLM evaluation
+* AI reliability
+* API engineering
+* Production deployment
+
+The main engineering challenge is not simply generating an answer.
+
+It is building a system that can answer:
+
+> **"Why should I trust this claim?"**
+
+That led to an architecture focused on claim-level analysis, evidence retrieval, and explainability rather than treating hallucination detection as a single opaque classification model.
+
+---
+
+# Author
+
+**Shreya Bhat**
+
+AI / ML Engineer | Data Scientist
+
+GitHub: [https://github.com/Shreyabhat11](https://github.com/Shreyabhat11)
+
+````
+
+### A couple of things I'd change before you commit it
+
+There are **two placeholders** I intentionally left rather than guessing:
+
+```text
+https://frontend-coral-one-6cme2r1fvt.vercel.app/
+````
