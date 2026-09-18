@@ -14,6 +14,7 @@ export type ClaimVerdict =
   | "CONTRADICTED"
   | "UNCERTAIN"
   | "INSUFFICIENT_EVIDENCE"
+  | "NO_RELEVANT_EVIDENCE"
 
 export type CitationVerdict = "SUPPORTED" | "PARTIALLY_SUPPORTED" | "UNSUPPORTED" | "NO_SOURCE"
 

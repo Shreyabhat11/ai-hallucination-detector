@@ -1,12 +1,13 @@
 import type { ClaimVerdict, CitationVerdict } from "../types/detector"
 import type { MarkerTone } from "../components/StatusMarker"
 
-export const claimVerdictDisplay: Record<ClaimVerdict, { label: string; tone: MarkerTone }> = {
+export const claimVerdictDisplay: Record<ClaimVerdict, { label:string; tone: MarkerTone }> = {
   SUPPORTED: { label: "Supported", tone: "verify" },
   PARTIALLY_SUPPORTED: { label: "Partially supported", tone: "caution" },
   CONTRADICTED: { label: "Contradicted", tone: "risk" },
   UNCERTAIN: { label: "Uncertain", tone: "caution" },
   INSUFFICIENT_EVIDENCE: { label: "Insufficient evidence", tone: "neutral" },
+  NO_RELEVANT_EVIDENCE: { label: "No relevant evidence", tone: "neutral" },
 }
 
 export const citationVerdictDisplay: Record<CitationVerdict, { label: string; tone: MarkerTone }> = {
