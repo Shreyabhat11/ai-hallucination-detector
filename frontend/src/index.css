@@ -51,3 +51,26 @@ h1, h2, h3, h4 {
     transition-duration: 0.01ms !important;
   }
 }
+
+.answer-content {
+  line-height: 1.7;
+  color: #475569;
+}
+
+.answer-content p {
+  margin: 0 0 14px;
+}
+
+.answer-content strong {
+  color: #1e293b;
+  font-weight: 700;
+}
+
+.answer-content ul {
+  margin: 8px 0 14px 20px;
+  padding-left: 18px;
+}
+
+.answer-content li {
+  margin-bottom: 6px;
+}
