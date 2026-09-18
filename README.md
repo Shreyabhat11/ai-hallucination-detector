@@ -7,6 +7,7 @@ The system generates an answer from a user prompt, extracts factual claims from 
 ## Live Application
 
 **Frontend:** https://frontend-coral-one-6cme2r1fvt.vercel.app/
+
 **Backend API:** https://ai-hallucination-detector-1.onrender.com
 
 **API Health Check:** https://ai-hallucination-detector-1.onrender.com/health
@@ -57,7 +58,7 @@ Evidence Aggregation
 Reliability Analysis
      ↓
 Explainable UI
-
+```
 
 ---
 
