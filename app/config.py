@@ -7,7 +7,7 @@ load_dotenv()
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 PRIMARY_MODEL = "gemini-2.5-flash"   # fast + cheap
-VERIFIER_MODEL = "gemini-2.5-flash"
+VERIFIER_MODEL = "gemini-3.1-flash-lite"
 
 # --- Security / robustness settings -----------------------------------
 # All overridable via env vars so the deployment's config doesn't require

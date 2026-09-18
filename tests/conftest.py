@@ -6,3 +6,4 @@ import os
 # functions -- so this key is never actually used to authenticate.
 os.environ.setdefault("GEMINI_API_KEY", "test-dummy-key")
 os.environ.setdefault("PRIMARY_MODEL", "models/gemini-2.5-flash")
+os.environ.setdefault("VERIFIER_MODEL", "models/gemini-3.1-flash-lite")

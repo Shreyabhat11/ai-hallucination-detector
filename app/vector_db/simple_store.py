@@ -11,7 +11,7 @@ class SimpleVectorStore:
         self.docs.extend(docs)
         self.vectors.extend(embed(docs))
 
-    def query(self, text: str, k: int = 3) -> list[str]:
+    def query(self, text: str, k: int = 3) -> list[tuple[float, str]]:
         if not self.docs:
             return []
 
@@ -23,7 +23,7 @@ class SimpleVectorStore:
 
         sims = [(cosine(query_vec, v), d) for v, d in zip(self.vectors, self.docs)]
         sims.sort(key=lambda pair: pair[0], reverse=True)
-        return [d for _, d in sims[:k]]
+        return sims[:k]
 
 
 # global instance

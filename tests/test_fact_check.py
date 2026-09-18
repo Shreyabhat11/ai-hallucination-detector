@@ -36,7 +36,7 @@ async def test_no_evidence_gives_insufficient_evidence_verdict(
 @patch("app.detector.fact_check.search_web_async", new_callable=AsyncMock)
 @patch("app.detector.fact_check.verify_prompt_async", new_callable=AsyncMock)
 async def test_supported_verdict_scores_full_marks(mock_verify, mock_search, mock_store):
-    mock_store.query.return_value = ["The Eiffel Tower was completed in 1889."]
+    mock_store.query.return_value = [(0.9, "The Eiffel Tower was completed in 1889.")]
     mock_search.return_value = []
     mock_verify.return_value = "SUPPORTED"
 
@@ -52,7 +52,7 @@ async def test_supported_verdict_scores_full_marks(mock_verify, mock_search, moc
 @patch("app.detector.fact_check.search_web_async", new_callable=AsyncMock)
 @patch("app.detector.fact_check.verify_prompt_async", new_callable=AsyncMock)
 async def test_contradicted_verdict_scores_zero(mock_verify, mock_search, mock_store):
-    mock_store.query.return_value = ["The Eiffel Tower is 500 meters tall."]
+    mock_store.query.return_value = [(0.9, "The Eiffel Tower is 500 meters tall.")]
     mock_search.return_value = []
     mock_verify.return_value = "CONTRADICTED"
 
@@ -69,7 +69,7 @@ async def test_contradicted_verdict_scores_zero(mock_verify, mock_search, mock_s
 async def test_one_failing_claim_does_not_crash_the_others(mock_verify, mock_search, mock_store):
     mock_store.query.side_effect = [
         RuntimeError("KB is on fire"),  # claim 1: KB lookup blows up
-        ["Python was created by Guido van Rossum."],  # claim 2: fine
+        [(0.9, "Python was created by Guido van Rossum.")],  # claim 2: fine
     ]
     mock_search.return_value = []
     mock_verify.return_value = "SUPPORTED"
@@ -89,7 +89,7 @@ async def test_one_failing_claim_does_not_crash_the_others(mock_verify, mock_sea
 @patch("app.detector.fact_check.store")
 @patch("app.detector.fact_check.search_web_async", new_callable=AsyncMock)
 async def test_web_search_skipped_when_disabled(mock_search, mock_store):
-    mock_store.query.return_value = ["some KB doc"]
+    mock_store.query.return_value = [(0.9, "some KB doc")]
     with patch(
         "app.detector.fact_check.verify_prompt_async", new_callable=AsyncMock
     ) as mock_verify:
@@ -116,3 +116,79 @@ async def test_web_sources_are_populated_with_title_and_url(mock_verify, mock_se
         {"title": "Eiffel Tower - Wikipedia", "url": "https://en.wikipedia.org/wiki/Eiffel_Tower"}
     ]
     assert "Completed in 1889." in results[0]["evidence"]
+
+@pytest.mark.asyncio
+@patch("app.detector.fact_check.store")
+@patch("app.detector.fact_check.search_web_async", new_callable=AsyncMock)
+@patch("app.detector.fact_check.verify_prompt_async", new_callable=AsyncMock)
+async def test_structured_verifier_selects_relevant_evidence(
+    mock_verify, mock_search, mock_store
+):
+    mock_store.query.return_value = [
+        (0.9, "The Eiffel Tower is 330 meters tall.")
+    ]
+    mock_search.return_value = [
+        {
+            "title": "Eiffel Tower - Wikipedia",
+            "url": "https://en.wikipedia.org/wiki/Eiffel_Tower",
+            "body": "The Eiffel Tower is 330 meters tall.",
+        }
+    ]
+
+    mock_verify.return_value = (
+        '{"verdict": "SUPPORTED", "relevant_candidates": [2]}'
+    )
+
+    results, _ = await fact_check_claims(
+        ["The Eiffel Tower is 330 meters tall."],
+        use_web_search=True,
+    )
+
+    assert results[0]["verdict"] == "SUPPORTED"
+    assert results[0]["evidence"] == (
+        "The Eiffel Tower is 330 meters tall."
+    )
+    assert results[0]["sources"] == [
+        {
+            "title": "Eiffel Tower - Wikipedia",
+            "url": "https://en.wikipedia.org/wiki/Eiffel_Tower",
+        }
+    ]
+
+
+@pytest.mark.asyncio
+@patch("app.detector.fact_check.store")
+@patch("app.detector.fact_check.search_web_async", new_callable=AsyncMock)
+@patch("app.detector.fact_check.verify_prompt_async", new_callable=AsyncMock)
+async def test_structured_verifier_excludes_irrelevant_candidates(
+    mock_verify, mock_search, mock_store
+):
+    mock_store.query.return_value = [
+        (0.9, "The Eiffel Tower is 330 meters tall."),
+    ]
+    mock_search.return_value = [
+        {
+            "title": "New Delhi - Wikipedia",
+            "url": "https://en.wikipedia.org/wiki/New_Delhi",
+            "body": "New Delhi is the capital city of India.",
+        }
+    ]
+
+    mock_verify.return_value = (
+        '{"verdict": "SUPPORTED", "relevant_candidates": [2]}'
+    )
+
+    results, _ = await fact_check_claims(
+        ["The capital of India is New Delhi."],
+        use_web_search=True,
+    )
+
+    assert results[0]["verdict"] == "SUPPORTED"
+    assert results[0]["evidence"] == "New Delhi is the capital city of India."
+    assert "Eiffel Tower" not in results[0]["evidence"]
+    assert results[0]["sources"] == [
+        {
+            "title": "New Delhi - Wikipedia",
+            "url": "https://en.wikipedia.org/wiki/New_Delhi",
+        }
+    ]
